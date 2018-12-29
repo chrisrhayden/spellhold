@@ -5,7 +5,7 @@
   spellhold -l
 
 ## Description
-  spellhold wil ltake stdout from a command and both log it to a file trhen
+  spellhold will take stdout from a command and both log it to a file then
   display it to the client if connected
 
 ## Options
