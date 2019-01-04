@@ -36,6 +36,7 @@ impl Client {
         thread::spawn(move || loop {
             match listener.accept() {
                 Ok((mut iner_stream, _)) => {
+                    // set the sender gate bool to true
                     client_accept1.store(true, Ordering::Relaxed);
 
                     loop {
@@ -47,6 +48,7 @@ impl Client {
                             Ok(val) => val,
                         };
 
+                        // send line to the client
                         iner_stream.write_all(next.as_bytes()).unwrap();
                     }
 

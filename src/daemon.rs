@@ -47,6 +47,7 @@ impl Daemon {
                         Ok(f) => f,
                     };
 
+                    println!("the line given to the daemon is {}", val);
                     if let Err(err) = writeln!(file, "{}", val) {
                         eprintln!("Couldn't write to file: {}", err);
                     }

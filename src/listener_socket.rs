@@ -44,9 +44,11 @@ impl Listener {
 
                 let mut buf_string = String::new();
 
-                client
-                    .read_to_string(&mut buf_string)
-                    .expect("received string with invalid utf8 characters");
+                while buf_string.ends_with() != "\n" {
+                    client
+                        .read_to_string(&mut buf_string)
+                        .expect("received string with invalid utf8 characters");
+                }
 
                 let buf_string = buf_string.trim_start().trim_end();
 
