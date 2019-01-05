@@ -9,6 +9,20 @@ use crate::SendEvt;
 use crate::listener_socket::Listener;
 use crate::client_socket::Client;
 
+fn append_to_file(
+    the_file_path: &PathBuf,
+    to_write: &str,
+) -> Result<(), Box<dyn Error>> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open(the_file_path)?;
+
+    writeln!(file, "{}", to_write)?;
+
+    Ok(())
+}
+
 #[derive(Default)]
 pub struct Daemon();
 
@@ -21,36 +35,31 @@ impl Daemon {
         let main_path = PathBuf::from("/tmp/spellholdd_socket");
         let main_socket = Listener::new(&main_path);
 
-        let socket_path = PathBuf::from("/tmp/spellhold_client");
-        let client = Client::new(&socket_path);
+        let client_path = PathBuf::from("/tmp/spellhold_client");
+        let client = Client::new(&client_path);
+
+        let log_root = PathBuf::from("/home/chris/proj/spellhold");
 
         for next in main_socket {
             match next {
                 SendEvt::SendString(val) => {
-                    let log_file = PathBuf::from("log_file");
+                    let str_split = &val.split(' ').collect::<Vec<&str>>();
 
-                    if !log_file.exists() {
-                        fs::File::create(log_file).unwrap();
-                    }
-
-                    let mut file = match OpenOptions::new()
-                        .write(true)
-                        .append(true)
-                        .open("log_file")
-                    {
-                        Err(err) => {
-                            return Err(Box::from(format!(
-                                "from client {}",
-                                err
-                            )));
-                        }
-                        Ok(f) => f,
+                    let (log_id, content) = if str_split[0] == "connect" {
+                        (str_split[2], str_split[0])
+                    } else {
+                        (str_split[0], str_split[2])
                     };
 
-                    println!("the line given to the daemon is {}", val);
-                    if let Err(err) = writeln!(file, "{}", val) {
-                        eprintln!("Couldn't write to file: {}", err);
+                    let log_file = log_root.join(log_id);
+
+                    if !log_file.exists() {
+                        fs::File::create(&log_file).unwrap();
                     }
+
+                    append_to_file(&log_file, &val)?;
+
+                    println!("id: {} -- content: {}", log_id, content);
 
                     if client.client_accept.load(Ordering::Relaxed) {
                         client.sender.send(val).unwrap();

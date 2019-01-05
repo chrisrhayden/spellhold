@@ -1,7 +1,7 @@
 extern crate rand;
 
 use std::iter;
-use std::io::{self, stdin, BufRead};
+use std::io::{stdin, BufRead};
 use std::error::Error;
 use std::io::prelude::*;
 use std::os::unix::net::UnixStream;
@@ -27,6 +27,8 @@ fn run() -> Result<(), Box<dyn Error>> {
 
 
     let conect_id = format!("connect -ID- {}\n", log_id);
+    let content_id = format!("{} -ENDID- ", log_id);
+
     stream.write_all(conect_id.as_bytes())?;
     stream.flush()?;
 
@@ -34,6 +36,8 @@ fn run() -> Result<(), Box<dyn Error>> {
     for line in stdin.lock().lines() {
 
         let mut line = line.unwrap();
+
+        line.insert_str(0, &content_id);
 
         line += "\n";
 
