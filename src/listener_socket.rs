@@ -1,68 +1,71 @@
-use std::fs;
-use std::thread;
-use std::io::Read;
+use std::error::Error;
 use std::path::PathBuf;
+use std::{fs, thread};
 use std::os::unix::net::UnixListener;
-
 use std::sync::mpsc::{self, Receiver};
+use std::io::{BufRead, BufReader};
 
 use crate::SendEvt;
 
+fn stream_handler(
+    socket_path: &PathBuf,
+    sender: mpsc::Sender<SendEvt>,
+) -> Result<(), Box<dyn Error>> {
+    if socket_path.exists() {
+        fs::remove_file(socket_path).unwrap();
+    }
+
+    let socket_path1 = socket_path.clone();
+    thread::spawn(move || {
+        // get a handle of a socket
+        let listener = match UnixListener::bind(&socket_path1) {
+            Ok(listener) => listener,
+            Err(err) => {
+                let path = socket_path1.to_string_lossy();
+                panic!("couldn't connect to socket_path {} {}", path, err);
+            }
+        };
+
+        for stream in listener.incoming() {
+            let stream = stream.expect("no stream");
+            let bf_stream = BufReader::new(stream);
+
+            for line in bf_stream.lines() {
+                let line = line.expect("bad utf8?");
+
+                if line == "end" {
+                    break;
+                }
+
+                sender
+                    .send(SendEvt::SendString(line))
+                    .expect("fucked sending");
+
+            }
+        }
+    });
+
+    Ok(())
+}
+
 pub struct Listener {
     pub receiver: Receiver<SendEvt>,
-    pub listener: UnixListener,
 }
 
 impl Listener {
     pub fn new(socket_path: &PathBuf) -> Listener {
         let (tx, rx) = mpsc::channel();
 
-        if socket_path.exists() {
-            fs::remove_file(&socket_path).unwrap();
-        }
-
-        // get a handle of a socket
-        let listener = match UnixListener::bind(&socket_path) {
-            Ok(listener) => listener,
-            Err(err) => {
-                let path = socket_path.to_string_lossy();
-                panic!("couldn't connect to socket_path {} {}", path, err);
-            }
-        };
-
-        // make a clone to send to the thread
-        let listener1 = match listener.try_clone() {
-            Err(err) => panic!("couldn't clone listener: {}", err),
-            Ok(listener) => listener,
-        };
-
+        let socket_path1 = socket_path.clone();
         let tx1 = tx.clone();
 
         thread::spawn(move || {
-            for client in listener1.incoming() {
-                let mut client = client.unwrap();
-
-                let mut buf_string = String::new();
-
-                while buf_string.ends_with() != "\n" {
-                    client
-                        .read_to_string(&mut buf_string)
-                        .expect("received string with invalid utf8 characters");
-                }
-
-                let buf_string = buf_string.trim_start().trim_end();
-
-                tx1.send(SendEvt::SendString(buf_string.to_string()))
-                    .expect("couldn't send event");
-            }
-
-            tx1.send(SendEvt::Kill).unwrap();
+            if let Err(err) = stream_handler(&socket_path1, tx1) {
+                eprintln!("Listener thread Error: {}", err);
+            };
         });
 
-        Listener {
-            receiver: rx,
-            listener,
-        }
+        Listener { receiver: rx }
     }
 }
 

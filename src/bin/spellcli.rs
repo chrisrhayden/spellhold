@@ -1,7 +1,7 @@
 extern crate rand;
 
 use std::iter;
-use std::io::stdin;
+use std::io::{self, stdin, BufRead};
 use std::error::Error;
 use std::io::prelude::*;
 use std::os::unix::net::UnixStream;
@@ -12,33 +12,35 @@ use rand::distributions::Alphanumeric;
 
 fn main() {
     if let Err(err) = run() {
-        eprintln!("Error: {}", err);
+        println!("in main");
+        eprintln!("{}", err);
     }
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
     let log_id = make_id_string()?;
 
-    let mut stream = UnixStream::connect("/tmp/spellholdd_socket")?;
+    let mut stream = match UnixStream::connect("/tmp/spellholdd_socket") {
+        Err(err) => return Err(Box::from(format!("Socket Error: {}", err))),
+        Ok(val) => val,
+    };
 
-    let mut buf_string = String::new();
 
     let conect_id = format!("connect -ID- {}\n", log_id);
-
     stream.write_all(conect_id.as_bytes())?;
     stream.flush()?;
 
-    loop {
-        if let Err(err) = stdin().read_line(&mut buf_string) {
-            eprintln!("Error {}", err);
-            break;
-        };
+    let stdin = stdin();
+    for line in stdin.lock().lines() {
 
-        println!("{}", buf_string);
-        stream.write_all(buf_string.as_bytes())?;
-        stream.flush()?;
-        buf_string.clear();
+        let mut line = line.unwrap();
+
+        line += "\n";
+
+        stream.write_all(line.as_bytes())?;
     }
+
+    stream.write_all(b"end")?;
 
     Ok(())
 }
