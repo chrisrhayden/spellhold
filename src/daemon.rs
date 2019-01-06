@@ -38,30 +38,31 @@ impl Daemon {
         let client_path = PathBuf::from("/tmp/spellhold_client");
         let client = Client::new(&client_path);
 
-        let log_root = PathBuf::from("/home/chris/proj/spellhold");
+        let log_root = PathBuf::from("/home/chris/proj/spellhold/log_files");
 
         for next in main_socket {
             match next {
-                SendEvt::SendString(val) => {
-                    let str_split = &val.split(' ').collect::<Vec<&str>>();
-
-                    let (log_id, content) = if str_split[0] == "connect" {
-                        (str_split[2], str_split[0])
-                    } else {
-                        (str_split[0], str_split[2])
-                    };
+                SendEvt::Connect(val) => {
+                    let log_id: &str = &val.split(' ').last().unwrap();
 
                     let log_file = log_root.join(log_id);
-
                     if !log_file.exists() {
                         fs::File::create(&log_file).unwrap();
                     }
 
-                    append_to_file(&log_file, &val)?;
+                    append_to_file(&log_file, "connected")?;
+                }
+                SendEvt::SendString(val) => {
+                    let str_split = &val.split(' ').collect::<Vec<&str>>();
 
-                    println!("id: {} -- content: {}", log_id, content);
+                    let (log_id, content) = (str_split[0], str_split[2]);
+
+                    let log_file = log_root.join(log_id);
+
+                    append_to_file(&log_file, &content)?;
 
                     if client.client_accept.load(Ordering::Relaxed) {
+                        // send the whole string to be processed by the client
                         client.sender.send(val).unwrap();
                     }
                 }
