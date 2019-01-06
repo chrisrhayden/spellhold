@@ -12,8 +12,7 @@ use rand::distributions::Alphanumeric;
 
 fn main() {
     if let Err(err) = run() {
-        println!("in main");
-        eprintln!("{}", err);
+        eprintln!("Error: {}", err);
     }
 }
 
@@ -25,7 +24,6 @@ fn run() -> Result<(), Box<dyn Error>> {
         Ok(val) => val,
     };
 
-
     let conect_id = format!("connect -ID- {}\n", log_id);
     let content_id = format!("{} -ENDID- ", log_id);
 
@@ -34,12 +32,11 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let stdin = stdin();
     for line in stdin.lock().lines() {
-
         let mut line = line.unwrap();
 
         line.insert_str(0, &content_id);
 
-        line += "\n";
+        line += "\n\n\n";
 
         stream.write_all(line.as_bytes())?;
     }
