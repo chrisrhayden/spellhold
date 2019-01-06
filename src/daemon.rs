@@ -7,7 +7,6 @@ use std::sync::atomic::Ordering;
 
 use crate::SendEvt;
 use crate::listener_socket::Listener;
-use crate::client_socket::Client;
 
 fn append_to_file(
     the_file_path: &PathBuf,
@@ -35,17 +34,15 @@ impl Daemon {
         let main_path = PathBuf::from("/tmp/spellholdd_socket");
         let main_socket = Listener::new(&main_path);
 
-        let client_path = PathBuf::from("/tmp/spellhold_client");
-        let client = Client::new(&client_path);
-
         let log_root = PathBuf::from("/home/chris/proj/spellhold/log_files");
 
         for next in main_socket {
             match next {
                 SendEvt::Connect(val) => {
-                    let log_id: &str = &val.split(' ').last().unwrap();
+                    let log_id: &str = &val.split(' ').last().unwrap().trim_end();
 
                     let log_file = log_root.join(log_id);
+
                     if !log_file.exists() {
                         fs::File::create(&log_file).unwrap();
                     }
@@ -61,9 +58,9 @@ impl Daemon {
 
                     append_to_file(&log_file, &content)?;
 
-                    if client.client_accept.load(Ordering::Relaxed) {
+                    if main_socket.client_accept.load(Ordering::Relaxed) {
                         // send the whole string to be processed by the client
-                        client.sender.send(val).unwrap();
+                        main_socket.client_sender.send(val).unwrap();
                     }
                 }
                 SendEvt::Kill => break,
