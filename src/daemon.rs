@@ -33,12 +33,17 @@ fn append_to_file(
 }
 
 /// a struct to hang methods on
-#[derive(Default)]
-pub struct Daemon();
+pub struct Daemon {
+    quiet: bool,
+}
 
 impl Daemon {
-    pub fn new() -> Self {
-        Daemon()
+    pub fn new(quiet: bool) -> Self {
+        Daemon { quiet }
+    }
+
+    pub fn default() -> Self {
+        Daemon { quiet: true }
     }
 
     /// main run loop
@@ -77,6 +82,10 @@ impl Daemon {
                     let log_file = log_root.join(log_id);
 
                     append_to_file(&log_file, &content)?;
+
+                    if !self.quiet {
+                        println!("{}", val);
+                    }
 
                     if client_accept.load(Ordering::Relaxed) {
                         // send the whole string to be processed by the client
