@@ -37,7 +37,7 @@ fn append_to_file(
 pub struct Daemon();
 
 impl Daemon {
-    pub fn new() -> Daemon {
+    pub fn new() -> Self {
         Daemon()
     }
 
