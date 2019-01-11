@@ -96,7 +96,7 @@ fn make_id_string() -> Result<String, Box<dyn Error>> {
 }
 
 fn daemon_runner() -> Result<(), Box<dyn Error>> {
-    let mut da = Daemon::new();
+    let mut da = Daemon::new(false);
     let mut loop_break = true;
 
     while loop_break {
