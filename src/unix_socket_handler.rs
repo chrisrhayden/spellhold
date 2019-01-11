@@ -23,7 +23,7 @@ impl SocketHandler {
     /// will spawn a main thread and wait for a connection
     /// when a connection is accepted
     /// another thread will spawn to listen on or send to
-    pub fn new(socket_path: &Arc<PathBuf>) -> SocketHandler {
+    pub fn new(socket_path: &Arc<PathBuf>) -> Self {
         let (main_sender, main_receiver) = mpsc::channel();
         let (client_sender, client_receiver) = mpsc::channel();
 
