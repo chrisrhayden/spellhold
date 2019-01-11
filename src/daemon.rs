@@ -1,17 +1,27 @@
-use std::fs;
+use std::sync::Arc;
 use std::io::Write;
-use std::fs::OpenOptions;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
+use std::fs::{self, OpenOptions};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::SendEvt;
-use crate::listener_socket::Listener;
+use crate::unix_socket_handler::SocketHandler;
 
+// open a file and append the given string to it,
+// the file will be made but not the directory's
+// nothing is added to the string
+// it would be nice to have easy async for theses
 fn append_to_file(
     the_file_path: &PathBuf,
     to_write: &str,
 ) -> Result<(), Box<dyn Error>> {
+    if !the_file_path.exists() {
+        fs::File::create(&the_file_path)
+            .map_err(|err| format!("Append File Error: {}", err))?;
+    }
+
     let mut file = OpenOptions::new()
         .write(true)
         .append(true)
@@ -22,6 +32,7 @@ fn append_to_file(
     Ok(())
 }
 
+/// a struct to hang methods on
 #[derive(Default)]
 pub struct Daemon();
 
@@ -30,24 +41,33 @@ impl Daemon {
         Daemon()
     }
 
-    pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        let main_path = PathBuf::from("/tmp/spellholdd_socket");
-        let main_socket = Listener::new(&main_path);
+    /// main run loop
+    /// start the main threads and wait for input from the cli
+    pub fn run(&mut self) -> Result<bool, Box<dyn Error>> {
+        let main_path = Arc::new(PathBuf::from("/tmp/spellholdd_socket"));
+        let mut main_socket = SocketHandler::new(&main_path);
 
         let log_root = PathBuf::from("/home/chris/proj/spellhold/log_files");
+
+        let (client_accept, client_sender) =
+            main_socket.get_client_handles()?;
 
         for next in main_socket {
             match next {
                 SendEvt::Connect(val) => {
-                    let log_id: &str = &val.split(' ').last().unwrap().trim_end();
+                    let log_id: &str = &val.split(' ').last().unwrap().trim();
 
                     let log_file = log_root.join(log_id);
 
-                    if !log_file.exists() {
-                        fs::File::create(&log_file).unwrap();
-                    }
+                    let since_epoch = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)?
+                        .as_secs()
+                        .to_string();
 
-                    append_to_file(&log_file, "connected")?;
+                    append_to_file(
+                        &log_file,
+                        &format!("{} - connected\n", since_epoch),
+                    )?;
                 }
                 SendEvt::SendString(val) => {
                     let str_split = &val.split(' ').collect::<Vec<&str>>();
@@ -58,17 +78,28 @@ impl Daemon {
 
                     append_to_file(&log_file, &content)?;
 
-                    if main_socket.client_accept.load(Ordering::Relaxed) {
+                    if client_accept.load(Ordering::Relaxed) {
                         // send the whole string to be processed by the client
-                        main_socket.client_sender.send(val).unwrap();
+                        client_sender.send(SendEvt::SendString(val)).map_err(
+                            |err| format!("Error sending to client: {}", err),
+                        )?;
                     }
                 }
-                SendEvt::Kill => break,
-                SendEvt::None => continue,
-                SendEvt::Err(err) => eprintln!("Error {}", err),
+                SendEvt::Kill => {
+                    if client_accept.load(Ordering::Relaxed) {
+                        client_sender.send(SendEvt::Kill).map_err(|err| {
+                            format!("Error killing the client: {}", err)
+                        })?;
+
+                        client_accept.store(false, Ordering::Relaxed);
+                    }
+
+                    break;
+                }
+                SendEvt::End | SendEvt::None => continue,
             }
         }
 
-        Ok(())
+        Ok(false)
     }
 }
