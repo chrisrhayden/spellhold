@@ -1,10 +1,10 @@
 #!/bin/bash
 
 my_call() {
-    for i in {1..10}; do
+    for i in {1..100}; do
         echo "$i"
         sleep 1
-    done | ./target/debug/spellholdd -c
+    done | ./target/debug/spellhold -s
 }
 
 

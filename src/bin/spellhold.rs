@@ -14,22 +14,26 @@ use rand::distributions::Alphanumeric;
 use spellhold::daemon::Daemon;
 
 enum AppArgs {
-    Cli,
-    Damon,
+    Tui,
     None,
+    Stdin,
+    Daemon,
 }
 
 fn main() {
     match cli_args() {
-        AppArgs::Cli => {
+        AppArgs::Stdin => {
             if let Err(err) = stdin_runner() {
                 eprintln!("Cli Intake Error: {}", err);
             }
         }
-        AppArgs::Damon => {
+        AppArgs::Daemon => {
             if let Err(err) = daemon_runner() {
                 eprintln!("Daemon Error: {}", err)
             }
+        }
+        AppArgs::Tui => {
+            tui_runner();
         }
         AppArgs::None => eprintln!("No or bad cli args given"),
     }
@@ -39,9 +43,11 @@ fn main() {
 fn cli_args() -> AppArgs {
     for arg in env::args() {
         if arg == "-d" || arg == "--daemon" {
-            return AppArgs::Damon;
-        } else if arg == "-c" || arg == "--cli" {
-            return AppArgs::Cli;
+            return AppArgs::Daemon;
+        } else if arg == "-s" || arg == "--stdin" {
+            return AppArgs::Stdin;
+        } else if arg == "-t" || arg == "--tui" {
+            return AppArgs::Tui;
         }
     }
 
@@ -89,7 +95,7 @@ fn make_id_string() -> Result<String, Box<dyn Error>> {
     Ok(format!("{}_{}", since_epoch, log_file))
 }
 
-fn daemon_runner() -> Result<(), Box<dyn Error>>{
+fn daemon_runner() -> Result<(), Box<dyn Error>> {
     let mut da = Daemon::new();
     let mut loop_break = true;
 
@@ -98,4 +104,8 @@ fn daemon_runner() -> Result<(), Box<dyn Error>>{
     }
 
     Ok(())
+}
+
+fn tui_runner() {
+    println!("add the tui");
 }
