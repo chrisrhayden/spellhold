@@ -4,7 +4,7 @@ my_call() {
     for i in {1..10}; do
         echo "$i"
         sleep 1
-    done | ./target/debug/spellcli
+    done | ./target/debug/spellholdd -c
 }
 
 
