@@ -12,6 +12,7 @@ use rand::{Rng, thread_rng};
 use rand::distributions::Alphanumeric;
 
 use spellhold::daemon::Daemon;
+use spellhold::client_tui::TuiApp;
 
 enum AppArgs {
     Tui,
@@ -33,7 +34,9 @@ fn main() {
             }
         }
         AppArgs::Tui => {
-            tui_runner();
+            if let Err(err) = tui_runner() {
+                eprintln!("Daemon Error: {}", err)
+            }
         }
         AppArgs::None => eprintln!("No or bad cli args given"),
     }
@@ -106,6 +109,8 @@ fn daemon_runner() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn tui_runner() {
-    println!("add the tui");
+fn tui_runner() -> Result<(), Box<dyn Error>> {
+    let tui = TuiApp::new();
+
+    tui.run()
 }
