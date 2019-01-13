@@ -32,24 +32,20 @@ fn append_to_file(
     Ok(())
 }
 
-/// a struct to hang methods on
 pub struct Daemon {
     quiet: bool,
+    socket: PathBuf,
 }
 
 impl Daemon {
-    pub fn new(quiet: bool) -> Self {
-        Daemon { quiet }
-    }
-
-    pub fn default() -> Self {
-        Daemon { quiet: true }
+    pub fn new(quiet: bool, socket: PathBuf) -> Self {
+        Daemon { quiet, socket }
     }
 
     /// main run loop
     /// start the main threads and wait for input from the cli
     pub fn run(&mut self) -> Result<bool, Box<dyn Error>> {
-        let main_path = Arc::new(PathBuf::from("/tmp/spellholdd_socket"));
+        let main_path = Arc::new(self.socket.to_owned());
         let mut main_socket = SocketHandler::new(&main_path);
 
         let log_root = PathBuf::from("/home/chris/proj/spellhold/log_files");
@@ -68,6 +64,10 @@ impl Daemon {
                         .duration_since(UNIX_EPOCH)?
                         .as_secs()
                         .to_string();
+
+                    if !self.quiet {
+                        println!("connecting");
+                    }
 
                     append_to_file(
                         &log_file,
@@ -110,5 +110,15 @@ impl Daemon {
         }
 
         Ok(false)
+    }
+}
+
+/// default is true
+impl Default for Daemon {
+    fn default() -> Self {
+        Daemon {
+            quiet: true,
+            socket: PathBuf::from("/tmp/spellholdd_socket"),
+        }
     }
 }
