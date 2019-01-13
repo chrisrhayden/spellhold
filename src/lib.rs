@@ -1,8 +1,9 @@
-pub mod client_tui;
 pub mod daemon;
+pub mod events;
+pub mod stdin_handle;
+pub mod tui;
 pub mod unix_socket_handler;
 
-// TODO: make error more rusty
 #[derive(Debug, Clone)]
 pub enum SendEvt {
     End,
