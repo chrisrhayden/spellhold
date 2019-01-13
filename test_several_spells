@@ -1,16 +1,36 @@
 #!/bin/bash
 
+LOOPS=10
+CALLS=10
+
+while [[ -n "$1" ]]; do
+    case "$1" in
+        -l|--loops)
+            LOOPS="$2"
+            shift
+            ;;
+        -c|--calls)
+            CALLS="$2"
+            shift
+            ;;
+    esac
+    shift
+done
+
 my_call() {
-    for i in {1..10}; do
+    local i
+    for ((i=1; i < LOOPS + 1; i++)); do
         echo "$i"
         sleep 1
-    done | ./target/debug/spellhold -s
+    done | ./target/debug/spellcli -s
 }
 
 
 make_calls() {
-    for i in {1..10}; do
+    local i
+    for ((i=0; i < CALLS; i++)); do
         my_call &
     done
 }
+
 make_calls &
