@@ -153,7 +153,8 @@ fn client_handler(stream: UnixStream, receiver: ArcMutexReceiver) {
 
         loop {
             match receiver.recv().unwrap() {
-                SendEvt::SendString(val) => {
+                SendEvt::SendString(mut val) => {
+                    val += "\n";
                     stream
                         .write_all(val.as_bytes())
                         .expect("cant write to client");
