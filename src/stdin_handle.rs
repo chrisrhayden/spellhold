@@ -32,7 +32,7 @@ impl StdinHandle {
         StdinHandle { socket }
     }
 
-    pub fn run(&self) -> Result<(), Box<dyn Error>> {
+    pub fn run(&self, quite: bool) -> Result<(), Box<dyn Error>> {
         let log_id = make_id_string()?;
 
         let mut stream = UnixStream::connect(&self.socket)
@@ -52,6 +52,10 @@ impl StdinHandle {
             line += "\n";
 
             stream.write_all(line.as_bytes())?;
+
+            if !quite {
+                println!("line: {}", line);
+            }
         }
 
         stream.write_all(b"end\n")?;

@@ -54,9 +54,9 @@ fn main() {
 }
 
 fn stdin_runner() -> Result<(), Box<dyn Error>> {
-    let s_handle = StdinHandle::new(PathBuf::from(MAIN_SOCKET));
+    let stdin_handle = StdinHandle::new(PathBuf::from(MAIN_SOCKET));
 
-    s_handle.run()
+    stdin_handle.run(false)
 }
 
 fn daemon_runner() -> Result<(), Box<dyn Error>> {
