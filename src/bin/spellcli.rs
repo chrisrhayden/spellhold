@@ -47,6 +47,8 @@ fn main() {
         AppArgs::Tui => {
             if let Err(err) = tui_runner() {
                 eprintln!("Daemon Error: {}", err)
+            } else {
+                println!("Good bye")
             }
         }
         AppArgs::None => eprintln!("No or bad cli args given"),

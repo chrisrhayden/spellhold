@@ -1,5 +1,19 @@
 #!/bin/bash
 
+run_help() {
+cat << EOF
+Usage: ./test_several_spells -l LOOPS -c CALLS
+
+Options:
+    -l --loops LOOPS        how many loops to for each call to make
+    -c --calls CALLS        how many calls to make
+
+Notes:
+this will call a func that will loop and print the curent loop iter
+
+EOF
+}
+
 LOOPS=10
 CALLS=10
 
@@ -12,6 +26,14 @@ while [[ -n "$1" ]]; do
         -c|--calls)
             CALLS="$2"
             shift
+            ;;
+        -h|--help)
+            run_help
+            exit 0
+            ;;
+        *)
+            run_help
+            exit 1
             ;;
     esac
     shift

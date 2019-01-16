@@ -19,23 +19,64 @@ use tui::widgets::{Block, Borders, Tabs, Widget, Paragraph, Text};
 
 use crate::events::event::{Event, Events};
 
-// const STATIC_NONE: &str = "None";
+use std::fmt::Display;
+
+struct TuiErr {
+    tabs: Vec<String>,
+    current: String,
+    index: usize,
+    data_map: HashMap<String, Vec<String>>,
+}
+
+impl TuiErr {
+    fn new<E>(err: E) -> Self
+    where
+        E: Display,
+    {
+        let err = format!("{}", err);
+
+        let mut data_map = HashMap::new();
+        data_map.insert("Error".to_string(), vec![err.to_string()]);
+
+        TuiErr {
+            tabs: vec!["Error".to_string()],
+            current: "Error".to_string(),
+            index: 0,
+            data_map,
+        }
+    }
+}
 
 fn listener(socket: &PathBuf, app_state: &Arc<Mutex<AppState>>) {
     let mut stream = UnixStream::connect(socket).unwrap();
 
-    // tell the daemon we want to connect
-    stream.write_all(b"client\n").unwrap();
+    match stream.write_all(b"client\n") {
+        Ok(val) => val,
+        Err(err) => {
+            let mut app_state = app_state.lock().unwrap();
+            app_state.update_from_err(TuiErr::new(&err));
+            return;
+        }
+    };
 
     for line in BufReader::new(stream).lines() {
-        let line = line.unwrap();
+        let mut app_state = app_state.lock().unwrap();
+        if app_state.end {
+            break;
+        }
+
+        let line = match line {
+            Ok(val) => val,
+            Err(err) => {
+                app_state.update_from_err(TuiErr::new(&err));
+                return;
+            }
+        };
 
         let split_vec = line.split(' ').collect::<Vec<&str>>();
         let (id, contents) = (split_vec[0], split_vec[2]);
         let mut contents = contents.to_string();
         contents.push('\n');
-
-        let mut app_state = app_state.lock().unwrap();
 
         if !app_state.tabs.contains(&id.to_string()) {
             app_state.tabs.push(id.to_owned());
@@ -50,19 +91,17 @@ fn listener(socket: &PathBuf, app_state: &Arc<Mutex<AppState>>) {
 
         // initial receive go to first tab
         if app_state.current.is_empty() {
-            if let Err(err) = app_state.update_state(Some(0)) {
-                eprintln!("{}", err);
-            }
+            app_state.current = id.to_owned();
         }
     }
 }
 
-#[allow(dead_code)]
 struct AppState {
     index: usize,
     current: String,
     tabs: Vec<String>,
     data_map: HashMap<String, Vec<String>>,
+    end: bool,
 }
 
 impl AppState {
@@ -72,7 +111,15 @@ impl AppState {
             tabs: Vec::new(),
             current: String::new(),
             data_map: HashMap::new(),
+            end: false,
         }
+    }
+
+    fn update_from_err(&mut self, err_obj: TuiErr) {
+        self.index = err_obj.index;
+        self.current = err_obj.current;
+        self.tabs = err_obj.tabs;
+        self.data_map = err_obj.data_map;
     }
 
     fn update_state(
@@ -102,6 +149,10 @@ impl AppState {
     }
 
     fn next(&mut self) {
+        if self.tabs.len() == 1 {
+            return;
+        }
+
         let index = (self.index + 1) % self.tabs.len();
 
         if let Err(err) = self.update_state(Some(index)) {
@@ -110,6 +161,10 @@ impl AppState {
     }
 
     fn previous(&mut self) {
+        if self.tabs.len() == 1 {
+            return;
+        }
+
         let index = if self.index > 0 {
             self.index - 1
         } else {
@@ -143,19 +198,6 @@ impl TuiApp {
         thread::spawn(move || {
             listener(&socket_path, &app_state);
         });
-
-        /*
-                let app_state = match self.app.lock() {
-                    Ok(val) => val,
-                    Err(err) => panic!("{}", err),
-                };
-
-                format!("tabs: {:?}", app_state.tabs);
-                format!("data: {:?}", app_state.data_map);
-                format!("current: {:?}", app_state.current);
-                format!("index: {:?}", app_state.index);
-                p
-        */
 
         if let Err(err) = self.tui_start() {
             eprintln!("{}", err);
@@ -203,11 +245,7 @@ impl TuiApp {
                 let (tabs, index): (Vec<String>, usize) = self.get_tab_info();
 
                 Tabs::default()
-                    .block(
-                        Block::default()
-                            .borders(Borders::ALL)
-                            .title("The Tabs"),
-                    )
+                    .block(Block::default().borders(Borders::ALL).title("Tabs"))
                     .titles(tabs.as_ref())
                     .select(index)
                     .style(word_style)
@@ -217,14 +255,18 @@ impl TuiApp {
                 let text = self.get_text_widgets();
 
                 Paragraph::new(text.iter())
-                    .block(block.title("words fool"))
+                    .block(block.title("stdin"))
                     .alignment(Alignment::Left)
                     .render(&mut f, chunks[1]);
             })?;
 
             match events.next()? {
                 Event::Input(input) => match input {
-                    Key::Char('q') => break,
+                    Key::Char('q') => {
+                        let mut app_state = self.app.lock().unwrap();
+                        app_state.end = true;
+                        break;
+                    }
                     Key::Right => self.next(),
                     Key::Left => self.previous(),
                     _ => {}
