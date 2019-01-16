@@ -1,2 +1,4 @@
 * make simple menu and pager for lines
 * add cli parser like clipy i think
+
+* a way to show errors
