@@ -24,6 +24,7 @@ use crate::events::event::{Event, Events};
 fn listener(socket: &PathBuf, app_state: &Arc<Mutex<AppState>>) {
     let mut stream = UnixStream::connect(socket).unwrap();
 
+    // tell the daemon we want to connect
     stream.write_all(b"client\n").unwrap();
 
     for line in BufReader::new(stream).lines() {
@@ -31,42 +32,94 @@ fn listener(socket: &PathBuf, app_state: &Arc<Mutex<AppState>>) {
 
         let split_vec = line.split(' ').collect::<Vec<&str>>();
         let (id, contents) = (split_vec[0], split_vec[2]);
+        let mut contents = contents.to_string();
+        contents.push('\n');
 
         let mut app_state = app_state.lock().unwrap();
+
+        if !app_state.tabs.contains(&id.to_string()) {
+            app_state.tabs.push(id.to_owned());
+        }
 
         let current_vec = app_state
             .data_map
             .entry(String::from(id))
             .or_insert_with(Vec::new);
 
-        current_vec.push(contents.to_string());
+        current_vec.push(contents);
 
-        println!("{:?}", current_vec);
+        // initial receive go to first tab
+        if app_state.current.is_empty() {
+            if let Err(err) = app_state.update_state(Some(0)) {
+                eprintln!("{}", err);
+            }
+        }
     }
 }
 
 #[allow(dead_code)]
 struct AppState {
-    tabs: Vec<String>,
     index: usize,
-    data_map: HashMap<String, Vec<String>>,
     current: String,
+    tabs: Vec<String>,
+    data_map: HashMap<String, Vec<String>>,
 }
 
 impl AppState {
     fn new() -> Self {
-        // tabs: vec![STATIC_NONE.to_owned()],
         AppState {
+            index: 0,
+            tabs: Vec::new(),
             current: String::new(),
             data_map: HashMap::new(),
-            tabs: Vec::new(),
-            index: 0,
         }
     }
 
-    // fn update_state() {}
+    fn update_state(
+        &mut self,
+        next_tab: Option<usize>,
+    ) -> Result<(), Box<dyn Error>> {
+        let next_tab = match next_tab {
+            Some(val) => val,
+            None => self.index,
+        };
 
-    // fn next(&mut self) -> Result<(), Box<dyn Error>> { Ok(()) }
+        if next_tab == self.index {
+            return Ok(());
+        } else if next_tab > self.tabs.len() {
+            return Err(Box::from("no tab"));
+        }
+
+        let tab_str = match self.tabs.get(next_tab) {
+            Some(val) => val,
+            None => return Err(Box::from("no tab")),
+        };
+
+        self.current = tab_str.to_owned();
+        self.index = next_tab;
+
+        Ok(())
+    }
+
+    fn next(&mut self) {
+        let index = (self.index + 1) % self.tabs.len();
+
+        if let Err(err) = self.update_state(Some(index)) {
+            eprintln!("{}", err);
+        };
+    }
+
+    fn previous(&mut self) {
+        let index = if self.index > 0 {
+            self.index - 1
+        } else {
+            self.tabs.len() - 1
+        };
+
+        if let Err(err) = self.update_state(Some(index)) {
+            eprintln!("{}", err);
+        };
+    }
 }
 
 pub struct TuiApp {
@@ -129,16 +182,10 @@ impl TuiApp {
             .borders(Borders::ALL)
             .title_style(Style::default().modifier(Modifier::Bold));
 
-        let mut dumy = &mut vec![];
-        let mut err_vec: Vec<String> = vec![];
-
         loop {
             let size = terminal.size()?;
 
             terminal.resize(size)?;
-
-            let mut app_state = self.app.lock().unwrap();
-            // let mut app_state = self.app.lock().unwrap();
 
             terminal.draw(|mut f| {
                 let chunks = Layout::default()
@@ -153,55 +200,21 @@ impl TuiApp {
                     .style(Style::default().bg(Color::White))
                     .render(&mut f, size);
 
+                let (tabs, index): (Vec<String>, usize) = self.get_tab_info();
+
                 Tabs::default()
                     .block(
                         Block::default()
                             .borders(Borders::ALL)
                             .title("The Tabs"),
                     )
-                    .titles(app_state.tabs.as_ref())
-                    .select(app_state.index)
+                    .titles(tabs.as_ref())
+                    .select(index)
                     .style(word_style)
                     .highlight_style(word_style_hl)
                     .render(&mut f, chunks[0]);
 
-                /*
-                let text = vec![
-                    Text::raw(format!("tabs: {:?}", app_state.tabs)),
-                    Text::raw(format!("data: {:?}", app_state.data_map)),
-                    Text::raw(format!("current: {:?}", app_state.current)),
-                    Text::raw(format!("index: {:?}", app_state.index)),
-                ];
-
-                Paragraph::new(text.iter())
-                    .block(block.title("what"))
-                    .alignment(Alignment::Left)
-                    .render(&mut f, chunks[1]);
-
-                */
-                let current_key = app_state.current.to_owned();
-
-                let current_vec: &mut Vec<String> =
-                    match app_state.data_map.get_mut(&current_key) {
-                        Some(val) => val,
-                        None => {
-                            err_vec.push("Nothing in current_vec".to_string());
-                            &mut dumy
-                        }
-                    };
-
-                // defitly a better way
-                let text: Vec<Text> =
-                    if !current_key.is_empty() && !current_vec.is_empty() {
-                        if !err_vec.is_empty() {
-                            current_vec.append(&mut err_vec);
-                        }
-                        current_vec.iter().map(Text::raw).collect::<Vec<Text>>()
-                    } else if !err_vec.is_empty() {
-                        err_vec.iter().map(Text::raw).collect::<Vec<Text>>()
-                    } else {
-                        vec![Text::raw("none here")]
-                    };
+                let text = self.get_text_widgets();
 
                 Paragraph::new(text.iter())
                     .block(block.title("words fool"))
@@ -209,14 +222,56 @@ impl TuiApp {
                     .render(&mut f, chunks[1]);
             })?;
 
-            err_vec.clear();
-
-            if let Event::Input(input) = events.next()? {
-                if let Key::Char('q') = input {
-                    break;
-                }
-            }
+            match events.next()? {
+                Event::Input(input) => match input {
+                    Key::Char('q') => break,
+                    Key::Right => self.next(),
+                    Key::Left => self.previous(),
+                    _ => {}
+                },
+                Event::Tick => {}
+            };
         }
         Ok(())
+    }
+
+    fn get_tab_info(&self) -> (Vec<String>, usize) {
+        let app_state = self.app.lock().unwrap();
+
+        let (tabs, index) = if app_state.tabs.is_empty() {
+            (vec!["None".to_string()], 0)
+        } else {
+            (app_state.tabs.to_owned(), app_state.index)
+        };
+
+        (tabs, index)
+    }
+
+    fn get_text_widgets(&self) -> Vec<Text> {
+        let mut app_state = self.app.lock().unwrap();
+        let current_key = app_state.current.to_owned();
+        let current_vec = app_state.data_map.get_mut(&current_key);
+
+        let mut none = vec!["None".to_string()];
+
+        let text = if current_vec.is_some() {
+            current_vec.unwrap()
+        } else {
+            &mut none
+        };
+
+        text.iter()
+            .map(|val| Text::raw(val.to_string()))
+            .collect::<Vec<Text>>()
+    }
+
+    fn next(&self) {
+        let mut app_state = self.app.lock().unwrap();
+        app_state.next();
+    }
+
+    fn previous(&self) {
+        let mut app_state = self.app.lock().unwrap();
+        app_state.previous();
     }
 }
