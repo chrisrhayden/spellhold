@@ -22,7 +22,7 @@ enum AppAction {
 struct AppArgs {
     quite: bool,
     action: AppAction,
-    optional_value: Option<String>,
+    optional_values: Vec<Option<String>>,
 }
 
 impl AppArgs {
@@ -42,7 +42,6 @@ impl AppArgs {
                     .visible_alias("d")
                     .arg(
                         Arg::with_name("daemon socket")
-                            .requires("daemon")
                             .short("p")
                             .long("daemon-path")
                             .value_name("DAEMON_PATH")
@@ -56,12 +55,19 @@ impl AppArgs {
                     .visible_alias("s")
                     .arg(
                         Arg::with_name("stdin name")
-                            .requires("stdin")
                             .short("n")
                             .long("std-name")
                             .value_name("STDIN_NAME")
                             .takes_value(true)
                             .help("the stdin name"),
+                    )
+                    .arg(
+                        Arg::with_name("stdin socket")
+                            .short("s")
+                            .long("std-socket")
+                            .value_name("SOCKET_PATH")
+                            .takes_value(true)
+                            .help("the stdin socket if changed from default"),
                     ),
             )
             .subcommand(
@@ -82,25 +88,25 @@ impl AppArgs {
             _ => true,
         };
 
-        let (action, optional_value) = if matches.is_present("daemon") {
-            let opt =
-                Some(matches.value_of("daemon").unwrap_or("").to_string());
+        let (action, optional_values) = if matches.is_present("daemon") {
+            let opt = matches.value_of("stdin-name").map(String::from);
 
-            (AppAction::Daemon, opt)
+            (AppAction::Daemon, vec![opt])
         } else if matches.is_present("stdin") {
-            let opt = Some(matches.value_of("stdin").unwrap_or("").to_string());
+            let socket = matches.value_of("stdin-socket").map(String::from);
+            let name = matches.value_of("stdin-name").map(String::from);
 
-            (AppAction::Stdin, opt)
+            (AppAction::Stdin, vec![socket, name])
         } else if matches.is_present("tui") {
-            (AppAction::Tui, None)
+            (AppAction::Tui, vec![None])
         } else {
-            (AppAction::None, None)
+            (AppAction::None, vec![None])
         };
 
         AppArgs {
             quite,
             action,
-            optional_value,
+            optional_values,
         }
     }
 }
@@ -110,12 +116,18 @@ fn main() {
 
     match app.action {
         AppAction::Stdin => {
-            if let Err(err) = stdin_runner(app.quite, app.optional_value) {
+            let (socket, name) = (
+                app.optional_values[0].to_owned(),
+                app.optional_values[1].to_owned(),
+            );
+            if let Err(err) = stdin_runner(socket, app.quite, name) {
                 eprintln!("Cli Intake Error: {}", err);
             }
         }
         AppAction::Daemon => {
-            if let Err(err) = daemon_runner(app.quite, app.optional_value) {
+            if let Err(err) =
+                daemon_runner(app.optional_values[0].to_owned(), app.quite)
+            {
                 eprintln!("Daemon Error: {}", err)
             }
         }
@@ -131,19 +143,26 @@ fn main() {
 }
 
 fn stdin_runner(
+    socket: Option<String>,
     quite: bool,
     name: Option<String>,
 ) -> Result<(), Box<dyn Error>> {
-    let stdin_handle = StdinHandle::new(PathBuf::from(MAIN_SOCKET), quite);
+    let socket: PathBuf = if socket.is_some() {
+        PathBuf::from(socket.unwrap())
+    } else {
+        PathBuf::from(MAIN_SOCKET)
+    };
+
+    let stdin_handle = StdinHandle::new(socket, quite);
 
     stdin_handle.run(name)
 }
 
 fn daemon_runner(
-    quit: bool,
     socket: Option<String>,
+    quite: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let mut da = Daemon::new(quit, socket);
+    let mut da = Daemon::new(socket, quite);
 
     let mut loop_break = true;
 

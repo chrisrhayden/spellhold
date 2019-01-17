@@ -44,7 +44,7 @@ my_call() {
     for ((i=1; i < LOOPS + 1; i++)); do
         echo "$i"
         sleep 1
-    done | ./target/debug/spellcli -s
+    done | ./target/debug/spellcli stdin
 }
 
 

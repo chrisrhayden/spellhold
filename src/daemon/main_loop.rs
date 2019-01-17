@@ -38,7 +38,7 @@ pub struct Daemon {
 }
 
 impl Daemon {
-    pub fn new(quiet: bool, socket: Option<String>) -> Self {
+    pub fn new(socket: Option<String>, quiet: bool) -> Self {
         let socket = match socket {
             // TODO: add checks here
             Some(val) => PathBuf::from(val),
