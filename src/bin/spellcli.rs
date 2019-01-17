@@ -140,9 +140,9 @@ fn main() {
 fn stdin_runner(app: &AppArgs) -> Result<(), Box<dyn Error>> {
     let quite = app.quite;
     let name = app.optional_values[1].to_owned();
-    let socket = app.optional_values[0].to_owned();
 
-    let socket = socket
+    let socket = app.optional_values[0]
+        .to_owned()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(MAIN_SOCKET));
 

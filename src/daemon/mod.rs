@@ -6,6 +6,7 @@ pub enum SendEvt {
     End,
     Kill,
     None,
+    Restart,
     Connect(String),
     SendString(String),
 }
@@ -20,6 +21,8 @@ impl SendEvt {
             SendEvt::Kill
         } else if line.starts_with("end") {
             SendEvt::End
+        } else if line.starts_with("restart") {
+            SendEvt::Restart
         } else if !line.is_empty() {
             SendEvt::SendString(line)
         } else {

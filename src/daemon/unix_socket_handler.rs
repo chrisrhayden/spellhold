@@ -1,7 +1,7 @@
 use std::{fs, thread};
 use std::error::Error;
 use std::path::PathBuf;
-use std::sync::{self, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{self, Receiver};
 use std::io::{BufRead, BufReader, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -25,6 +25,10 @@ impl SocketHandler {
     /// when a connection is accepted another thread will spawn and listen for
     /// the incoming lines or send lines to the client.
     pub fn new(socket_path: &Arc<PathBuf>) -> Self {
+        SocketHandler::start_new_thread(socket_path)
+    }
+
+    pub fn start_new_thread(socket_path: &Arc<PathBuf>) -> Self {
         let (main_sender, main_receiver) = mpsc::channel();
         let (client_sender, client_receiver) = mpsc::channel();
 

@@ -111,6 +111,9 @@ impl Daemon {
 
                     break;
                 }
+                SendEvt::Restart => {
+                    return Ok(true);
+                }
                 SendEvt::End | SendEvt::None => continue,
             }
         }
