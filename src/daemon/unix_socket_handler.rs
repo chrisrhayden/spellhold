@@ -7,6 +7,8 @@ use std::io::{BufRead, BufReader, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::os::unix::net::{UnixListener, UnixStream};
 
+use std::io::ErrorKind;
+
 use crate::daemon::SendEvt;
 
 type ClientTuple = (Arc<AtomicBool>, mpsc::Sender<SendEvt>);
@@ -24,11 +26,14 @@ impl SocketHandler {
     ///
     /// when a connection is accepted another thread will spawn and listen for
     /// the incoming lines or send lines to the client.
-    pub fn new(socket_path: &Arc<PathBuf>) -> Self {
-        SocketHandler::start_new_thread(socket_path)
+    pub fn new(socket_path: &Arc<PathBuf>, end_bool: Arc<AtomicBool>) -> Self {
+        SocketHandler::start_new_thread(socket_path, end_bool)
     }
 
-    pub fn start_new_thread(socket_path: &Arc<PathBuf>) -> Self {
+    pub fn start_new_thread(
+        socket_path: &Arc<PathBuf>,
+        end_bool: Arc<AtomicBool>,
+    ) -> Self {
         let (main_sender, main_receiver) = mpsc::channel();
         let (client_sender, client_receiver) = mpsc::channel();
 
@@ -46,6 +51,7 @@ impl SocketHandler {
                 &socket_path_give,
                 &main_sender_give,
                 &client_accept_give,
+                &end_bool,
                 &client_receiver,
             ) {
                 eprintln!("Error in the main receiver thread: {}", err);
@@ -93,6 +99,7 @@ fn stream_handler(
     socket_path: &Arc<PathBuf>,
     main_sender: &mpsc::Sender<SendEvt>,
     client_accept: &Arc<AtomicBool>,
+    end_bool: &Arc<AtomicBool>,
     client_receiver: &Arc<Mutex<mpsc::Receiver<SendEvt>>>,
 ) -> Result<(), Box<dyn Error>> {
     // remove old file
@@ -128,6 +135,7 @@ fn stream_handler(
 
         // send data to a client
         } else if buffer.starts_with("client") {
+            println!("new client");
             // let the main thread know to start sending
             client_accept.store(true, Ordering::Relaxed);
 
@@ -135,6 +143,7 @@ fn stream_handler(
                 stream_send,
                 client_receiver.clone(),
                 client_accept.clone(),
+                end_bool.clone(),
             );
         }
 
@@ -159,6 +168,7 @@ fn client_handler(
     stream: UnixStream,
     receiver: ArcMutexReceiver,
     accept: Arc<AtomicBool>,
+    end_bool: Arc<AtomicBool>,
 ) {
     thread::spawn(move || {
         let mut stream = stream;
@@ -170,7 +180,12 @@ fn client_handler(
                     val += "\n";
                     match stream.write_all(val.as_bytes()) {
                         Ok(val) => val,
-                        Err(_) => {
+                        Err(ref err) if err.kind() == ErrorKind::BrokenPipe => {
+                            accept.store(false, Ordering::Relaxed);
+                            break;
+                        }
+                        Err(err) => {
+                            eprintln!("Daemon Client Error: {}", err);
                             accept.store(false, Ordering::Relaxed);
                             break;
                         } // this will let new connectios
@@ -182,6 +197,10 @@ fn client_handler(
                 }
                 _ => continue,
             };
+
+            if end_bool.load(Ordering::Relaxed) {
+                break;
+            }
         }
     });
 }

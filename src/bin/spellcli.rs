@@ -28,8 +28,7 @@ struct AppArgs {
 impl AppArgs {
     fn new() -> AppArgs {
         let matches = App::new("spellcli")
-            .version("1.0")
-            .about("pip stdout to a daemon")
+            .about("pip or retrieve stdin from a daemon")
             .arg(
                 Arg::with_name("quite")
                     .short("q")
@@ -168,7 +167,10 @@ fn daemon_runner(app: &AppArgs) -> Result<(), Box<dyn Error>> {
     let mut loop_break = true;
 
     while loop_break {
-        println!("running daemon");
+        if !quite {
+            println!("running daemon");
+        }
+
         loop_break = da.run()?;
     }
 

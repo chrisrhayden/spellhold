@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::io::Write;
 use std::error::Error;
 use std::path::PathBuf;
@@ -45,14 +46,15 @@ impl Daemon {
             None => PathBuf::from("/tmp/spellholdd_socket"),
         };
 
-        Daemon { quiet, socket }
+        Daemon { socket, quiet }
     }
 
     /// main run loop
     /// start the main threads and wait for input from the cli
     pub fn run(&mut self) -> Result<bool, Box<dyn Error>> {
+        let end_bool = Arc::new(AtomicBool::new(false));
         let main_path = Arc::new(self.socket.to_owned());
-        let mut main_socket = SocketHandler::new(&main_path);
+        let mut main_socket = SocketHandler::new(&main_path, end_bool.clone());
 
         let log_root = PathBuf::from("/home/chris/proj/spellhold/log_files");
 
@@ -101,10 +103,8 @@ impl Daemon {
                     }
                 }
                 SendEvt::Kill => {
-                    if client_accept.load(Ordering::Relaxed) {
-                        client_sender.send(SendEvt::Kill).map_err(|err| {
-                            format!("Error killing the client: {}", err)
-                        })?;
+                    if !end_bool.load(Ordering::Relaxed) {
+                        end_bool.store(true, Ordering::Relaxed);
                     }
 
                     break;
@@ -113,6 +113,10 @@ impl Daemon {
                     return Ok(true);
                 }
                 SendEvt::End | SendEvt::None => continue,
+            }
+
+            if end_bool.load(Ordering::Relaxed) {
+                break;
             }
         }
 
