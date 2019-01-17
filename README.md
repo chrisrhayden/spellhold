@@ -2,6 +2,7 @@
   spellhold - a daemon to capture stdout and displays it on command
 
 ## Synopsis
+{{{
   spellcli
 
   USAGE:
@@ -17,6 +18,8 @@
       help      Prints this message or the help of the given subcommand(s)
       stdin      [aliases: s]
       tui        [aliases: t]
+
+  }}}
 
 ## Description
   spellhold will take stdout from a command and both log it to a file then
