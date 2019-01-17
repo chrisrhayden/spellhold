@@ -132,11 +132,11 @@ fn main() {
 
 fn stdin_runner(
     quite: bool,
-    socket: String,
     name: Option<String>,
 ) -> Result<(), Box<dyn Error>> {
     let socket = PathBuf::from(MAIN_SOCKET);
-    let stdin_handle = StdinHandle::new(socket, quite, name);
+
+    let stdin_handle = StdinHandle::new(None);
 
     stdin_handle.run()
 }

@@ -8,19 +8,22 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rand::{Rng, thread_rng};
 use rand::distributions::Alphanumeric;
 
-fn make_id_string() -> Result<String, Box<dyn Error>> {
-    let mut rng = thread_rng();
-
+fn make_id_string(name: Option<String>) -> Result<String, Box<dyn Error>> {
     let since_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)?
         .as_secs()
         .to_string();
 
-    let log_file = iter::repeat_with(|| rng.sample(Alphanumeric))
-        .take(10)
-        .collect::<String>();
+    let log_file = if name.is_some() {
+        name.unwrap()
+    } else {
+        let mut rng = thread_rng();
+        iter::repeat_with(|| rng.sample(Alphanumeric))
+            .take(10)
+            .collect::<String>()
+    };
 
-    Ok(format!("{}_{}", since_epoch, log_file))
+    Ok(format!("{}_{}", log_file, since_epoch))
 }
 
 pub struct StdinHandle {
@@ -29,16 +32,12 @@ pub struct StdinHandle {
 }
 
 impl StdinHandle {
-    pub fn new(socket: PathBuf, quite: bool, name: String) -> Self {
-        StdinHandle {
-            socket,
-            quite,
-            name,
-        }
+    pub fn new(socket: PathBuf, quite: bool) -> Self {
+        StdinHandle { socket, quite }
     }
 
-    pub fn run(&self) -> Result<(), Box<dyn Error>> {
-        let log_id = make_id_string()?;
+    pub fn run(&self, name: Option<String>) -> Result<(), Box<dyn Error>> {
+        let log_id = make_id_string(name)?;
 
         let mut stream = UnixStream::connect(&self.socket)
             .map_err(|err| format!("Error connecting to socket: {}", err))?;
