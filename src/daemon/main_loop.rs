@@ -105,8 +105,6 @@ impl Daemon {
                         client_sender.send(SendEvt::Kill).map_err(|err| {
                             format!("Error killing the client: {}", err)
                         })?;
-
-                        client_accept.store(false, Ordering::Relaxed);
                     }
 
                     break;
