@@ -22,7 +22,7 @@ enum AppAction {
 struct AppArgs {
     quite: bool,
     action: AppAction,
-    optional_value: String,
+    optional_value: Option<String>,
 }
 
 impl AppArgs {
@@ -83,20 +83,18 @@ impl AppArgs {
         };
 
         let (action, optional_value) = if matches.is_present("daemon") {
-            let opt = Some(matches.value_of("daemon").unwrap_or("").to_string()),
-            (
-                AppAction::Daemon,
-                
-            )
+            let opt =
+                Some(matches.value_of("daemon").unwrap_or("").to_string());
+
+            (AppAction::Daemon, opt)
         } else if matches.is_present("stdin") {
-            (
-                AppAction::Stdin,
-                matches.value_of("stdin").unwrap_or("").to_string(),
-            )
+            let opt = Some(matches.value_of("stdin").unwrap_or("").to_string());
+
+            (AppAction::Stdin, opt)
         } else if matches.is_present("tui") {
-            (AppAction::Tui, String::new())
+            (AppAction::Tui, None)
         } else {
-            (AppAction::None, String::new())
+            (AppAction::None, None)
         };
 
         AppArgs {
@@ -112,7 +110,7 @@ fn main() {
 
     match app.action {
         AppAction::Stdin => {
-            if let Err(err) = stdin_runner(app.quite, &app.optional_value) {
+            if let Err(err) = stdin_runner(app.quite, app.optional_value) {
                 eprintln!("Cli Intake Error: {}", err);
             }
         }
@@ -132,11 +130,15 @@ fn main() {
     }
 }
 
-fn stdin_runner(quite: bool, optional: &str) -> Result<(), Box<dyn Error>> {
-    let stdin_handle = StdinHandle::new(PathBuf::from(MAIN_SOCKET));
+fn stdin_runner(
+    quite: bool,
+    socket: String,
+    name: Option<String>,
+) -> Result<(), Box<dyn Error>> {
+    let socket = PathBuf::from(MAIN_SOCKET);
+    let stdin_handle = StdinHandle::new(socket, quite, name);
 
-    println!("cmd name {}", optional);
-    stdin_handle.run(quite)
+    stdin_handle.run()
 }
 
 fn daemon_runner(quit: bool) -> Result<(), Box<dyn Error>> {

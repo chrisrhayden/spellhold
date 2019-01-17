@@ -25,14 +25,19 @@ fn make_id_string() -> Result<String, Box<dyn Error>> {
 
 pub struct StdinHandle {
     socket: PathBuf,
+    quite: bool,
 }
 
 impl StdinHandle {
-    pub fn new(socket: PathBuf) -> Self {
-        StdinHandle { socket }
+    pub fn new(socket: PathBuf, quite: bool, name: String) -> Self {
+        StdinHandle {
+            socket,
+            quite,
+            name,
+        }
     }
 
-    pub fn run(&self, quite: bool) -> Result<(), Box<dyn Error>> {
+    pub fn run(&self) -> Result<(), Box<dyn Error>> {
         let log_id = make_id_string()?;
 
         let mut stream = UnixStream::connect(&self.socket)
@@ -53,7 +58,7 @@ impl StdinHandle {
 
             stream.write_all(line.as_bytes())?;
 
-            if !quite {
+            if !self.quite {
                 println!("line: {}", line);
             }
         }
