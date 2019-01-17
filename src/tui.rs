@@ -14,8 +14,10 @@ use termion::screen::AlternateScreen;
 use tui::Terminal;
 use tui::style::{Color, Style, Modifier};
 use tui::backend::TermionBackend;
-use tui::layout::{Alignment, Constraint, Direction, Layout};
-use tui::widgets::{Block, Borders, Tabs, Widget, Paragraph, Text};
+use tui::layout::{Constraint, Direction, Layout};
+// use tui::layout::{Alignment, Constraint, Direction, Layout};
+// use tui::widgets::{Block, Borders, Tabs, Widget, Paragraph,  List, Text};
+use tui::widgets::{Block, Borders, Tabs, Widget, List, Text};
 
 use crate::events::event::{Event, Events};
 
@@ -50,9 +52,8 @@ fn listener(socket: &PathBuf, app_state: &Arc<Mutex<AppState>>) {
 
         // initial receive go to first tab
         if app_state.current.is_empty() {
-            if let Err(err) = app_state.update_state(Some(0)) {
-                eprintln!("{}", err);
-            }
+            app_state.current = id.to_string();
+            app_state.index = 0;
         }
     }
 }
@@ -214,11 +215,10 @@ impl TuiApp {
                     .highlight_style(word_style_hl)
                     .render(&mut f, chunks[0]);
 
-                let text = self.get_text_widgets();
+                let text: Vec<Text> = self.get_text_widgets();
 
-                Paragraph::new(text.iter())
+                List::new(text.iter())
                     .block(block.title("words fool"))
-                    .alignment(Alignment::Left)
                     .render(&mut f, chunks[1]);
             })?;
 
@@ -247,7 +247,7 @@ impl TuiApp {
         (tabs, index)
     }
 
-    fn get_text_widgets(&self) -> Vec<Text> {
+    fn get_text_widgets(&self) -> Vec<&Text> {
         let mut app_state = self.app.lock().unwrap();
         let current_key = app_state.current.to_owned();
         let current_vec = app_state.data_map.get_mut(&current_key);
@@ -255,15 +255,33 @@ impl TuiApp {
         let mut none = vec!["None".to_string()];
 
         let text = if current_vec.is_some() {
-            current_vec.unwrap()
+            &mut current_vec.unwrap()
         } else {
             &mut none
         };
 
-        text.iter()
-            .map(|val| Text::raw(val.to_string()))
-            .collect::<Vec<Text>>()
+        text.iter().map(&Text::raw).collect::<Vec<Text>>()
     }
+
+    /*
+        fn get_text_widgets(&self) -> Vec<Text> {
+            let mut app_state = self.app.lock().unwrap();
+            let current_key = app_state.current.to_owned();
+            let current_vec = app_state.data_map.get_mut(&current_key);
+
+            let mut none = vec!["None".to_string()];
+
+            let text = if current_vec.is_some() {
+                current_vec.unwrap()
+            } else {
+                &mut none
+            };
+
+            text.iter()
+                .map(|val| Text::raw(val.to_string()))
+                .collect::<Vec<Text>>()
+        }
+    */
 
     fn next(&self) {
         let mut app_state = self.app.lock().unwrap();

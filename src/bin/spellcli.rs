@@ -37,6 +37,8 @@ fn main() {
         AppArgs::Stdin => {
             if let Err(err) = stdin_runner() {
                 eprintln!("Cli Intake Error: {}", err);
+            } else {
+                println!("Good bye");
             }
         }
         AppArgs::Daemon => {
@@ -56,7 +58,7 @@ fn main() {
 fn stdin_runner() -> Result<(), Box<dyn Error>> {
     let stdin_handle = StdinHandle::new(PathBuf::from(MAIN_SOCKET));
 
-    stdin_handle.run(false)
+    stdin_handle.run(true)
 }
 
 fn daemon_runner() -> Result<(), Box<dyn Error>> {
