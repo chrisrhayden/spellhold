@@ -4,7 +4,7 @@ extern crate rand;
 use std::error::Error;
 use std::path::PathBuf;
 
-use clap::{Arg, App};
+use clap::{Arg, App, SubCommand};
 
 use spellhold::daemon::main_loop::Daemon;
 use spellhold::client::stdin_handle::StdinHandle;
@@ -36,41 +36,38 @@ impl AppArgs {
                     .takes_value(false)
                     .help("whether should run quite"),
             )
-            .arg(
-                Arg::with_name("daemon")
-                    .short("d")
-                    .long("daemon")
-                    .help("optional socket path"),
+            .subcommand(
+                SubCommand::with_name("daemon")
+                    .help("run the spellhold daemon")
+                    .visible_alias("d")
+                    .arg(
+                        Arg::with_name("daemon socket")
+                            .requires("daemon")
+                            .short("p")
+                            .long("daemon-path")
+                            .value_name("DAEMON_PATH")
+                            .takes_value(true)
+                            .help("the daemon path"),
+                    ),
             )
-            .arg(
-                Arg::with_name("stdin")
-                    .short("s")
-                    .long("stdin")
-                    .help("take stdin"),
+            .subcommand(
+                SubCommand::with_name("stdin")
+                    .help("take stdin and sent it to the daemon")
+                    .visible_alias("s")
+                    .arg(
+                        Arg::with_name("stdin name")
+                            .requires("stdin")
+                            .short("n")
+                            .long("std-name")
+                            .value_name("STDIN_NAME")
+                            .takes_value(true)
+                            .help("the stdin name"),
+                    ),
             )
-            .arg(
-                Arg::with_name("tui")
-                    .short("t")
-                    .long("tui")
-                    .help("run the tui"),
-            )
-            .arg(
-                Arg::with_name("stdin name")
-                    .requires("stdin")
-                    .short("n")
-                    .long("std-name")
-                    .value_name("STDIN_NAME")
-                    .takes_value(true)
-                    .help("the stdin name"),
-            )
-            .arg(
-                Arg::with_name("daemon socket")
-                    .requires("daemon")
-                    .short("p")
-                    .long("daemon-path")
-                    .value_name("DAEMON_PATH")
-                    .takes_value(true)
-                    .help("the daemon path"),
+            .subcommand(
+                SubCommand::with_name("tui")
+                    .help("run the tui")
+                    .visible_alias("t"),
             )
             .get_matches();
 
@@ -86,14 +83,15 @@ impl AppArgs {
         };
 
         let (action, optional_value) = if matches.is_present("daemon") {
+            let opt = Some(matches.value_of("daemon").unwrap_or("").to_string()),
             (
                 AppAction::Daemon,
-                matches.value_of("daemon socket").unwrap_or("").to_string(),
+                
             )
         } else if matches.is_present("stdin") {
             (
                 AppAction::Stdin,
-                matches.value_of("stdin name").unwrap_or("").to_string(),
+                matches.value_of("stdin").unwrap_or("").to_string(),
             )
         } else if matches.is_present("tui") {
             (AppAction::Tui, String::new())
