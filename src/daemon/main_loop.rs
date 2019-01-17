@@ -6,8 +6,8 @@ use std::sync::atomic::Ordering;
 use std::fs::{self, OpenOptions};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::SendEvt;
-use crate::unix_socket_handler::SocketHandler;
+use crate::daemon::SendEvt;
+use crate::daemon::unix_socket_handler::SocketHandler;
 
 // open a file and append the given string to it,
 // the file will be made but not the directory's

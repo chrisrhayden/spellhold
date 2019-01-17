@@ -4,9 +4,9 @@ use std::env;
 use std::error::Error;
 use std::path::PathBuf;
 
-use spellhold::daemon::Daemon;
-use spellhold::stdin_handle::StdinHandle;
-use spellhold::tui::TuiApp;
+use spellhold::daemon::main_loop::Daemon;
+use spellhold::client::stdin_handle::StdinHandle;
+use spellhold::client::tui::TuiApp;
 
 const MAIN_SOCKET: &str = "/tmp/spellholdd_socket";
 

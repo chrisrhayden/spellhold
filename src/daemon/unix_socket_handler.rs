@@ -7,7 +7,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::os::unix::net::{UnixListener, UnixStream};
 
-use crate::SendEvt;
+use crate::daemon::SendEvt;
 
 type ClientTuple = (Arc<AtomicBool>, mpsc::Sender<SendEvt>);
 
