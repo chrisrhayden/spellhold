@@ -28,6 +28,8 @@ struct AppArgs {
 impl AppArgs {
     fn new() -> AppArgs {
         let matches = App::new("spellcli")
+            .version("1.0")
+            .about("pip stdout to a daemon")
             .arg(
                 Arg::with_name("quite")
                     .short("q")
@@ -38,8 +40,8 @@ impl AppArgs {
             )
             .subcommand(
                 SubCommand::with_name("daemon")
-                    .help("run the spellhold daemon")
                     .visible_alias("d")
+                    .about("run the spellhold daemon")
                     .arg(
                         Arg::with_name("daemon socket")
                             .short("s")
@@ -51,16 +53,15 @@ impl AppArgs {
             )
             .subcommand(
                 SubCommand::with_name("stdin")
-                    .help("take stdin and send it to the daemon")
                     .visible_alias("s")
+                    .about("take stdin and send it to the daemon")
                     .arg(
                         Arg::with_name("stdin name")
                             .short("n")
                             .long("std-name")
                             .value_name("STDIN_NAME")
                             .takes_value(true)
-                            .help(
-                "the stdin name for the tui and log file, default is random"),
+                            .help("the stdin name for the tui and log file"),
                     )
                     .arg(
                         Arg::with_name("stdin socket")
@@ -73,8 +74,16 @@ impl AppArgs {
             )
             .subcommand(
                 SubCommand::with_name("tui")
-                    .help("run the tui")
-                    .visible_alias("t"),
+                    .visible_alias("t")
+                    .about("run the tui")
+                    .arg(
+                        Arg::with_name("tui socket")
+                            .short("T")
+                            .long("tui-socket")
+                            .value_name("TUI_SOCKET")
+                            .takes_value(true)
+                            .help("the tui socket to different"),
+                    ),
             )
             .get_matches();
 
@@ -159,6 +168,7 @@ fn daemon_runner(app: &AppArgs) -> Result<(), Box<dyn Error>> {
     let mut loop_break = true;
 
     while loop_break {
+        println!("running daemon");
         loop_break = da.run()?;
     }
 
