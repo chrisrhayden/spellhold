@@ -1,7 +1,7 @@
 use std::{fs, thread};
 use std::error::Error;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{self, Arc, Mutex};
 use std::sync::mpsc::{self, Receiver};
 use std::io::{BufRead, BufReader, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,9 +20,10 @@ pub struct SocketHandler {
 }
 
 impl SocketHandler {
-    /// will spawn a main thread and wait for a connection
-    /// when a connection is accepted
-    /// another thread will spawn to listen on or send to
+    /// will spawn a main thread for the stream and wait for a connection
+    ///
+    /// when a connection is accepted another thread will spawn and listen for
+    /// the incoming lines or send lines to the client.
     pub fn new(socket_path: &Arc<PathBuf>) -> Self {
         let (main_sender, main_receiver) = mpsc::channel();
         let (client_sender, client_receiver) = mpsc::channel();
@@ -149,7 +150,7 @@ fn receiver_handler(share_stream: UnixStream, sender: mpsc::Sender<SendEvt>) {
 fn client_handler(stream: UnixStream, receiver: ArcMutexReceiver) {
     thread::spawn(move || {
         let mut stream = stream;
-        let receiver = receiver.lock().expect("cant get client receiver");
+        let receiver = receiver.lock().expect("Client handler failed");
 
         loop {
             match receiver.recv().unwrap() {
