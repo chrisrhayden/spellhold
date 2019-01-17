@@ -131,7 +131,11 @@ fn stream_handler(
             // let the main thread know to start sending
             client_accept.store(true, Ordering::Relaxed);
 
-            client_handler(stream_send, client_receiver.clone());
+            client_handler(
+                stream_send,
+                client_receiver.clone(),
+                client_accept.clone(),
+            );
         }
 
         // clear the first line buffer
@@ -151,7 +155,11 @@ fn receiver_handler(share_stream: UnixStream, sender: mpsc::Sender<SendEvt>) {
     });
 }
 
-fn client_handler(stream: UnixStream, receiver: ArcMutexReceiver) {
+fn client_handler(
+    stream: UnixStream,
+    receiver: ArcMutexReceiver,
+    accept: Arc<AtomicBool>,
+) {
     thread::spawn(move || {
         let mut stream = stream;
         let receiver = receiver.lock().expect("Client handler failed");
@@ -160,11 +168,18 @@ fn client_handler(stream: UnixStream, receiver: ArcMutexReceiver) {
             match receiver.recv().unwrap() {
                 SendEvt::SendString(mut val) => {
                     val += "\n";
-                    stream
-                        .write_all(val.as_bytes())
-                        .expect("cant write to client");
+                    match stream.write_all(val.as_bytes()) {
+                        Ok(val) => val,
+                        Err(_) => {
+                            accept.store(false, Ordering::Relaxed);
+                            break;
+                        } // this will let new connectios
+                    };
                 }
-                SendEvt::Kill => break,
+                SendEvt::Kill => {
+                    accept.store(false, Ordering::Relaxed);
+                    break;
+                }
                 _ => continue,
             };
         }
