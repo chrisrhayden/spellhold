@@ -115,7 +115,7 @@ fn main() {
             }
         }
         AppAction::Daemon => {
-            if let Err(err) = daemon_runner(app.quite) {
+            if let Err(err) = daemon_runner(app.quite, app.optional_value) {
                 eprintln!("Daemon Error: {}", err)
             }
         }
@@ -134,15 +134,16 @@ fn stdin_runner(
     quite: bool,
     name: Option<String>,
 ) -> Result<(), Box<dyn Error>> {
-    let socket = PathBuf::from(MAIN_SOCKET);
+    let stdin_handle = StdinHandle::new(PathBuf::from(MAIN_SOCKET), quite);
 
-    let stdin_handle = StdinHandle::new(None);
-
-    stdin_handle.run()
+    stdin_handle.run(name)
 }
 
-fn daemon_runner(quit: bool) -> Result<(), Box<dyn Error>> {
-    let mut da = Daemon::new(quit, None);
+fn daemon_runner(
+    quit: bool,
+    socket: Option<String>,
+) -> Result<(), Box<dyn Error>> {
+    let mut da = Daemon::new(quit, socket);
 
     let mut loop_break = true;
 
